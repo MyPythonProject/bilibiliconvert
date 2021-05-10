@@ -31,15 +31,17 @@ class WorkThread(QThread):
         global allfile
         for video_info in allfile:
             # 创建目标目录
-            outDir = outDir0 + "\\" + video_info['title']
-
+            if video_info['part'] != '' and video_info['part'] != video_info['title']:
+                outDir = outDir0 + "\\" + video_info['title']
+            else:
+                outDir = outDir0
             outDir = outDir.replace(" ", "")
             outDir = outDir.replace("/", "()")
             print('=>'+outDir+'<=')
             if os.path.exists(outDir) == False:
                 os.mkdir(outDir)
             windowtitle = ''
-            if video_info['part'] != '':
+            if video_info['part'] != '' and video_info['part'] != video_info['title']:
                 windowtitle = video_info['title']+'/'+video_info['part']
             else:
                 windowtitle = video_info['title']
@@ -51,13 +53,13 @@ class WorkThread(QThread):
                 path2 = video_info['audio']
                 name = video_info['part'].replace(' ', '')
 
-                outfile = outDir + '\\' + str(index)
+                outfile = outDir + '\\' + name
                 print(outfile+".mp4开始合并\n")
                 ver = os.popen("FFmpeg -i "+path1+" -i "+path2 +
                                " -codec copy "+outfile+".mp4")
                 ver.close()
 
-                shutil.move(outfile + ".mp4", outDir + "\\" + name + ".mp4")
+                #shutil.move(outfile + ".mp4", outDir + "\\" + name + ".mp4")
                 print(outfile+".mp4合并完成\n")
 
             elif video_info['type'] == 'blv':
@@ -97,12 +99,18 @@ class WorkThread(QThread):
                 if os.path.exists('mergets.txt'):
                     os.remove('mergets.txt')
                 for ts_file in video_info['m3u8']:
-                    if os.path.splitext(ts_file)[1] != '':
-                        continue
-                    # 将文件重命名为ts文件
-                    ts_file_add_ext = ts_file + '.ts'
-
-                    os.rename(ts_file, ts_file_add_ext)
+                    ts_file_add_ext = ts_file
+                    if os.path.exists(ts_file+".ts") == False:
+                        if os.path.exists(ts_file) == False:
+                            continue
+                        ext_name = os.path.splitext(ts_file)[1]
+                        if ext_name == '':
+                            ts_file_add_ext = ts_file_add_ext + '.ts'
+                            os.rename(ts_file, ts_file_add_ext)
+                        elif ext_name != '.ts':
+                            continue
+                    else:
+                        ts_file_add_ext = ts_file_add_ext + '.ts'
                     # 追加打开合并脚本，不存在则创建
                     with open('mergets.txt', 'a') as f:  # 直接打开一个文件，如果文件不存在则创建文件
                         f.write('file ')
@@ -111,11 +119,11 @@ class WorkThread(QThread):
                         f.close()
 
                 # 多个flv文件合并
-
-                ver = os.popen("ffmpeg -f concat -safe 0 -i " +
-                               'mergets.txt' + " -codec copy " + outfile + ".mp4")
-                ver.close()
-                print(outfile+".mp4合并完成\n")
+                if os.path.exists('mergets.txt') == True:
+                    ver = os.popen("ffmpeg -f concat -safe 0 -i " +
+                                   'mergets.txt' + " -codec copy " + outfile + ".mp4")
+                    ver.close()
+                    print(outfile+".mp4合并完成\n")
             else:
                 self.trigger.emit(4, video_info['type'], index)
                 return
@@ -230,7 +238,7 @@ def Traversal_Source(path):
                             init_convert_info()
                             floor += 1
                             # 存入m4s文件信息
-                if convert_info['type'] == 'm4s' and convert_info['title'] != '' and convert_info['part'] != '' and convert_info['video'] != '' and convert_info['audio'] != '':
+                if convert_info['type'] == 'm4s' and convert_info['title'] != '' and convert_info['video'] != '' and convert_info['audio'] != '':
                     allfile.append(convert_info)
                     init_convert_info()
                     floor += 1
@@ -251,13 +259,19 @@ def init_convert_info():
 
 def parse_json(jsonname):
     global convert_info
+    size = os.path.getsize(jsonname)
+    if size == 0:  # 文件为空，已经损坏
+        return
     with open(jsonname, 'r', encoding='utf-8') as jf:
         data = json.load(jf)
 
         if 'entry.json' in jsonname:
             convert_info['title'] = data['title']
             if 'page_data' in data.keys():
-                convert_info['part'] = data['page_data']['part']
+                if 'part' in data['page_data'].keys():
+                    convert_info['part'] = data['page_data']['part']
+                else:
+                    convert_info['part'] = convert_info['title']
             else:
                 convert_info['part'] = data['ep']['index']
 
@@ -344,9 +358,9 @@ if __name__ == "__main__":
     ui.setupUi(MainWindow)
     init_ui()
     MainWindow.show()
-    QMessageBox.information(None, "温馨提示", "目前支持B站，Quark浏览器",
+
+    QMessageBox.information(None, "温馨提示", "目前支持B站，Quark和UC浏览器",
                             QMessageBox.Ok, QMessageBox.NoButton)
-    timer = QTimer()
     workThread = WorkThread()
 
     sys.exit(app.exec_())
