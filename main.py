@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import*
 import shutil
 import json
 from Ui_videoConvert import Ui_Form
-
+import re
 allfile = []
 
 floor = 0
@@ -17,7 +17,10 @@ slm = QStringListModel()
 convert_info = {'type': '', 'title': '', 'part': '',
                 'video': '', 'audio': '', 'blv': [], 'blv_num': 0, 'm3u8': []}
 
-
+def validateTitle(title):
+    rstr = r"[\/\\\:\*\?\"\<\>\|\&\ ]"  # '/ \ : * ? " < > | &  '
+    new_title = re.sub(rstr, "_", title)  # 替换为下划线
+    return new_title
 class WorkThread(QThread):
     trigger = pyqtSignal(int, str, int)
 
@@ -266,7 +269,7 @@ def parse_json(jsonname):
         data = json.load(jf)
 
         if 'entry.json' in jsonname:
-            convert_info['title'] = data['title']
+            convert_info['title'] = validateTitle(data['title'])
             if 'page_data' in data.keys():
                 if 'part' in data['page_data'].keys():
                     convert_info['part'] = data['page_data']['part']
@@ -274,7 +277,7 @@ def parse_json(jsonname):
                     convert_info['part'] = convert_info['title']
             else:
                 convert_info['part'] = data['ep']['index']
-
+            convert_info['part'] = validateTitle(convert_info['part'])
         elif 'index.json' in jsonname:
             if 'segment_list' in data.keys():
                 convert_info['blv_num'] = len(data['segment_list'])
