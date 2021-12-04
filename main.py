@@ -35,7 +35,10 @@ class WorkThread(QThread):
         for video_info in allfile:
             # 创建目标目录
             if video_info['part'] != '' and video_info['part'] != video_info['title']:
-                outDir = outDir0 + "\\" + video_info['title']
+                if outDir0.endswith('\\'):
+                    outDir = outDir0 + video_info['title']
+                else:
+                    outDir = outDir0 + "\\" + video_info['title']
             else:
                 outDir = outDir0
             outDir = outDir.replace(" ", "")
@@ -236,6 +239,8 @@ def Traversal_Source(path):
 
                         convert_info['title'] = os.path.splitext(
                             filepath[filepath.rfind('\\')+1:len(filepath)])[0]  # 获取去除路径与后缀名以后的单独文件名
+                        convert_info['title'] = convert_info['title'].replace(
+                            ' ', '')
                         if convert_info['title'] != '':
                             allfile.append(convert_info)
                             init_convert_info()
